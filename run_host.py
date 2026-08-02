@@ -17,6 +17,7 @@ import yaml
 from src.state import HostState
 from src.board_client import BoardClient
 from src.vertex_client import VertexClient
+from src.ctcl_client import CtclClient
 from src.watcher import run_once
 from src.responder import load_system_prompt
 
@@ -42,7 +43,10 @@ def build_components(config):
     )
     state = HostState.load(os.path.join(ROOT, config["state"]["path"]))
     system_prompt = load_system_prompt(os.path.join(ROOT, "prompts"))
-    return board_client, vertex_client, state, system_prompt
+    ctcl_client = None
+    if config.get("ctcl", {}).get("enabled"):
+        ctcl_client = CtclClient(config["ctcl"]["base_url"], timeout_seconds=config["ctcl"]["timeout_seconds"])
+    return board_client, vertex_client, state, system_prompt, ctcl_client
 
 
 def main():
@@ -53,11 +57,14 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
-    board_client, vertex_client, state, system_prompt = build_components(config)
+    board_client, vertex_client, state, system_prompt, ctcl_client = build_components(config)
 
     def run():
         now_ts = int(time.time() * 1000)
-        summary = run_once(config, state, board_client, vertex_client, system_prompt, now_ts, dry_run=args.dry_run)
+        summary = run_once(
+            config, state, board_client, vertex_client, system_prompt, now_ts,
+            dry_run=args.dry_run, ctcl_client=ctcl_client,
+        )
         if not args.dry_run:
             state.save()
         print(f"[run_host] {summary}")

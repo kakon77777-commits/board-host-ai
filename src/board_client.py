@@ -87,7 +87,7 @@ class BoardClient:
             raise BoardClientError(f"derive failed: {status} {body}")
         return body["instance"]
 
-    def post_message(self, *, content, identity, message_type, parent_id=None, topic=None):
+    def post_message(self, *, content, identity, message_type, parent_id=None, topic=None, meta=None):
         payload = {
             "content": content,
             "identity": identity,
@@ -97,6 +97,8 @@ class BoardClient:
             payload["parent_id"] = parent_id
         if topic:
             payload["topic"] = topic
+        if meta:
+            payload["meta"] = meta
         status, body = self._request("POST", "/", body=payload)
         if status != 201:
             raise BoardClientError(f"post_message failed: {status} {body}")

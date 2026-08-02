@@ -82,3 +82,15 @@ state:
   path: "state/host_state.json"
   max_processed_ids_kept: 2000
   max_reply_log_kept: 500
+
+# CTCL (共同時間座標層 / commoninstant.org) integration, per
+# docs/Board_Host_AI_v0.1.md §15.2's temporal metadata schema. CTCL's own
+# MCP/CLI/webhook work is complete as of 2026-08-02 (see project-ctcl-app),
+# so this is a real integration, not the "reserved for later" placeholder
+# the whitepaper originally scoped. Enrichment only — never a hard
+# dependency; any CTCL failure degrades to a missing field, never blocks
+# a reply (see src/ctcl_client.py's safe_register).
+ctcl:
+  enabled: true
+  base_url: "https://commoninstant.org"
+  timeout_seconds: 10

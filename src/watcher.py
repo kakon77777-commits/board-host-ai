@@ -18,9 +18,27 @@ from .decision import decide, decide_proactive_nudge
 from .loop_guard import thread_allows_reply
 from .vertex_client import VertexClientError
 from .responder import generate_reply, generate_nudge
+from .ctcl_client import safe_register
 
 
-def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, dry_run=False, log=print):
+def _temporal_meta(*, observed_id, write_id, reply_id, source_event_ts):
+    """Per docs/Board_Host_AI_v0.1.md §15.2. `event_instant_id` is
+    deliberately NOT a CTCL-verified field here — Board Host didn't
+    witness the original author's writing moment, so claiming a verified
+    instant for it would misrepresent what's actually verified. The raw
+    board timestamp is included separately, honestly labeled unverified.
+    """
+    return {
+        "temporal": {
+            "observed_instant_id": observed_id,
+            "write_instant_id": write_id,
+            "reply_instant_id": reply_id,
+            "source_event_ts_unverified": source_event_ts,
+        }
+    }
+
+
+def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, dry_run=False, log=print, ctcl_client=None):
     host_identity_key = identity_key(config["identity"])
     max_replies = config["board_host"]["reply"]["max_replies_per_run"]
 
@@ -74,6 +92,8 @@ def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, 
             watermark_ts, watermark_id = msg["ts"], msg["id"]
             continue
 
+        observed_instant_id = safe_register(ctcl_client, f"board-host:observed:{msg['id']}", log)
+
         try:
             reply_text, model_used = generate_reply(context, decision, vertex_client, system_prompt)
         except VertexClientError as e:
@@ -81,10 +101,19 @@ def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, 
             summary["errors"] += 1
             break
 
+        write_instant_id = safe_register(ctcl_client, f"board-host:write:{msg['id']}", log)
+
         if dry_run:
             log(f"[watcher][dry-run] would post reply to {msg['id']} via {model_used}: {reply_text[:200]}")
             posted_ts = now_ts
         else:
+            reply_instant_id = safe_register(ctcl_client, f"board-host:reply:{msg['id']}", log)
+            meta = _temporal_meta(
+                observed_id=observed_instant_id,
+                write_id=write_instant_id,
+                reply_id=reply_instant_id,
+                source_event_ts=msg.get("ts"),
+            )
             try:
                 result = board_client.post_message(
                     content=reply_text,
@@ -92,6 +121,7 @@ def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, 
                     message_type="reply",
                     parent_id=msg["id"],
                     topic=msg.get("topic"),
+                    meta=meta,
                 )
             except BoardClientError as e:
                 log(f"[watcher] post failed for {msg['id']}, will retry next run: {e}")
@@ -119,14 +149,22 @@ def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, 
         if nudge:
             try:
                 nudge_text, model_used = generate_nudge(nudge, vertex_client, system_prompt)
+                write_instant_id = safe_register(ctcl_client, f"board-host:nudge-write:{nudge['topic']}", log)
                 if dry_run:
                     log(f"[watcher][dry-run] would post nudge into '{nudge['topic']}' via {model_used}: {nudge_text[:200]}")
                 else:
+                    reply_instant_id = safe_register(ctcl_client, f"board-host:nudge-reply:{nudge['topic']}", log)
                     board_client.post_message(
                         content=nudge_text,
                         identity=config["identity"],
                         message_type="comment",
                         topic=nudge["topic"],
+                        meta=_temporal_meta(
+                            observed_id=None,
+                            write_id=write_instant_id,
+                            reply_id=reply_instant_id,
+                            source_event_ts=None,
+                        ),
                     )
                     log(f"[watcher] posted proactive nudge into '{nudge['topic']}' via {model_used}")
                 state.record_proactive_nudge(ts=now_ts, topic=nudge["topic"])

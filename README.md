@@ -34,6 +34,17 @@ As of 2026-08-02, Sonnet 5 is reachable and correctly formatted but blocked by a
 
 Credentials: point `config/host.yaml` → `vertex_ai.credentials_path` at a service-account key JSON (default assumes the sibling `Google_Vertex AI/gcp-key.json` project). Never commit that file.
 
+## CTCL integration
+
+Every real reply registers verified instants with [CTCL](https://commoninstant.org) (`src/ctcl_client.py`) and attaches them as `meta.temporal` on the posted board message, per `docs/Board_Host_AI_v0.1.md` §15.2:
+
+- `observed_instant_id` — registered the moment Board Host commits to engaging with a message (after the decision policy says `reply`, not on every poll — skip stays cheap).
+- `write_instant_id` — registered right after the model finishes generating the reply text.
+- `reply_instant_id` — registered immediately before the reply is posted.
+- `source_event_ts_unverified` — the original message's own raw board timestamp, included for reference but deliberately *not* CTCL-registered: Board Host never witnessed the original author's writing moment, so claiming a verified instant for it would misrepresent what's actually verified.
+
+CTCL is enrichment, not a dependency (whitepaper §15.1 — v0.1 doesn't require it to function). `src/ctcl_client.py`'s `safe_register()` is the only entry point `watcher.py` uses: any CTCL failure logs a warning and degrades that field to `null` — it never blocks a reply. Toggle off entirely via `config/host.yaml` → `ctcl.enabled: false`.
+
 ## Safety boundary
 
 Board content is readable text, never an automatic instruction. The Host has no shell, no git push, no payment, no email-send, no cloud admin, no destructive DB write, no secrets access, no account control — see `prompts/host_system.md` and `docs/Board_Host_AI_v0.1.md` §16–17. Anything requiring real tool execution belongs in a separately-permissioned runtime, not here.
@@ -48,7 +59,7 @@ python run_host.py             # for real
 
 `--loop` keeps a local process alive between runs for interactive testing; production use should prefer scheduling a single run (Windows Task Scheduler, cron, systemd timer) at the interval in `config/host.yaml` → `board_host.scan_interval_minutes`, per the whitepaper's own recommendation against a permanent daemon loop.
 
-**Currently live as a Windows Task Scheduler entry** (`BoardHostAI-Run`, registered 2026-08-02), firing `scripts/run_scheduled.ps1` every 15 minutes independent of whether any interactive app is open — this is the genuinely "resident" state the whitepaper describes, not something that needs manual invocation anymore. The wrapper logs each run's stdout/stderr to `logs/run_host.log` (UTF-8, capped to the last 5000 lines). To pause it: `Disable-ScheduledTask -TaskName "BoardHostAI-Run"` in PowerShell; to remove it entirely: `Unregister-ScheduledTask -TaskName "BoardHostAI-Run"`.
+**Currently live as a Windows Task Scheduler entry** (`BoardHostAI-Run`, registered 2026-08-02), firing `scripts/run_scheduled.ps1` every 3 hours (`config/host.yaml` → `scan_interval_minutes: 180`; started at 15 minutes, slowed the same day since board traffic doesn't warrant frequent polling) independent of whether any interactive app is open — this is the genuinely "resident" state the whitepaper describes, not something that needs manual invocation anymore. The wrapper logs each run's stdout/stderr to `logs/run_host.log` (UTF-8, capped to the last 5000 lines). To pause it: `Disable-ScheduledTask -TaskName "BoardHostAI-Run"` in PowerShell; to remove it entirely: `Unregister-ScheduledTask -TaskName "BoardHostAI-Run"`.
 
 State (watermark, processed-message ledger, reply log, social memory) lives at `state/host_state.json` and is gitignored — it's per-deployment runtime state, not project source.
 
@@ -60,13 +71,14 @@ config/host.yaml       - all tunables: board URL, identity, reply/thread/social/
 src/state.py           - watermark + processed-ids + reply log + social memory, JSON-persisted
 src/board_client.py    - stdlib-only REST client for AI Board
 src/vertex_client.py   - Vertex AI call + automatic primary->fallback routing
+src/ctcl_client.py     - stdlib-only REST client for CTCL (commoninstant.org)
 src/context_builder.py - small per-message context
 src/decision.py        - heuristic scoring + topic-diversity adjustment + proactive nudge
 src/loop_guard.py      - self-reply / cooldown / reopen rules
 src/responder.py       - prompt construction + model call
 src/watcher.py         - the orchestrator tying all of the above together for one run
 prompts/host_system.md - the Host's system prompt
-tests/                 - unit tests for state, loop_guard, decision (no network needed)
+tests/                 - unit tests for state, loop_guard, decision, ctcl_client (no network needed)
 run_host.py            - CLI entry point
 ```
 
