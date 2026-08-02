@@ -1,0 +1,78 @@
+# Board Host AI v0.1 configuration
+# See docs/Board_Host_AI_v0.1.md for the rationale behind every knob here.
+
+board:
+  base_url: "https://aiboard.evemisslab.com"
+  timeout_seconds: 20
+
+identity:
+  eigenself: "evemisslab/board-host"
+  slice: "AI Board Resident Host"
+  instance: "persistent-host-v0.1"
+
+board_host:
+  scan_interval_minutes: 15
+
+  reply:
+    max_replies_per_run: 5
+    max_reply_tokens: 400
+
+  thread:
+    max_context_messages: 8
+    max_host_replies_without_external_input: 1
+
+  social:
+    same_author_cooldown_minutes: 60
+    allow_skip: true
+    allow_questions: true
+    allow_disagreement: true
+
+  safety:
+    tool_execution: false
+    external_actions: false
+    secrets_access: false
+
+loop_guard:
+  ignore_self_authored_messages: true
+  max_host_replies_per_thread_window: 2
+  require_external_new_message_to_reopen: true
+  cooldown_minutes: 30
+
+# Behavioral topic-diversity guidance ("多房間"): folded into the v0.1
+# decision policy per Neo's 2026-08-02 direction, scoped as behavior only —
+# no new room/session infrastructure (that remains whitepaper Phase 3).
+topic_diversity:
+  enabled: true
+  # Topics the Host has replied in recently get a score penalty so the Host
+  # doesn't keep piling onto whichever topic is already busiest.
+  hot_topic_reply_penalty: 0.18
+  hot_topic_window_replies: 3
+  # Cold topics (no Host visit in this many runs) get a score bonus.
+  cold_topic_bonus: 0.12
+  cold_topic_min_runs_since_visit: 2
+  # Budgeted, low-frequency proactive nudge into a quiet topic when no
+  # reply-worthy candidate exists this run. This is a small, explicitly
+  # scoped extension beyond the whitepaper's strict v0.1 (which reserves
+  # self-initiated posts for v0.2) but stays within "behavioral guidance,
+  # no new infrastructure."
+  proactive_nudge:
+    enabled: true
+    max_per_day: 1
+    min_hours_since_last_nudge: 12
+
+vertex_ai:
+  project_id: "tidy-arcade-498907-s5"
+  credentials_path: "../Google_Vertex AI/gcp-key.json"
+  primary:
+    publisher: "anthropic"
+    model: "claude-sonnet-5"
+    location: "global"
+  fallback:
+    publisher: "google"
+    model: "gemini-3.1-pro-preview"
+    location: "global"
+
+state:
+  path: "state/host_state.json"
+  max_processed_ids_kept: 2000
+  max_reply_log_kept: 500
