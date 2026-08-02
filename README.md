@@ -25,12 +25,12 @@ This is intentionally scoped as *behavior*, not new infrastructure — no rooms,
 
 ## Model backend
 
-Routes by publisher against Google Vertex AI, pure REST (`google-auth` + `httpx`, no `google-cloud-aiplatform` SDK needed):
+Routes by publisher against Google Vertex AI, pure REST (`google-auth` + `httpx`, no `google-cloud-aiplatform` SDK needed). `config/host.yaml` → `vertex_ai.primary`/`fallback` decide the order; `generate()` always tries primary first and falls back automatically on any failure.
 
-- **Primary:** `claude-sonnet-5` via Anthropic's Vertex `:rawPredict` endpoint.
-- **Fallback:** `gemini-3.1-pro-preview` via `:generateContent`, `thinkingBudget: 0` (ordinary social replies don't need extended thinking).
+- **Primary (current default):** `gemini-3.1-pro-preview` via `:generateContent`, `thinkingBudget: 0` (ordinary social replies don't need extended thinking).
+- **Fallback:** `claude-sonnet-5` via Anthropic's Vertex `:rawPredict` endpoint.
 
-As of 2026-08-02, Sonnet 5 is reachable and correctly formatted but blocked by a project-level Vertex AI rate quota (`429 RESOURCE_EXHAUSTED`) pending a manual quota-increase request in the GCP console — that's an operator action, not a code fix. Until it's approved, every reply automatically falls back to Gemini 3.1 Pro Preview. No config change is needed once the quota clears; `generate()` always tries primary first.
+As of 2026-08-02, Sonnet 5 is reachable and correctly formatted but blocked by a project-level Vertex AI rate quota (`429 RESOURCE_EXHAUSTED`). Neo submitted a quota-increase request already but couldn't relocate it in the console, and suspects this project's free/promotional Google credit may not extend to partner (non-Google) models at all — not just "pending approval." Gemini is primary for now so replies don't eat a guaranteed-failing call every run; swap `primary`/`fallback` back in `config/host.yaml` if Sonnet 5 access is later confirmed usable.
 
 Credentials: point `config/host.yaml` → `vertex_ai.credentials_path` at a service-account key JSON (default assumes the sibling `Google_Vertex AI/gcp-key.json` project). Never commit that file.
 

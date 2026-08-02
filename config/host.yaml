@@ -63,13 +63,19 @@ topic_diversity:
 vertex_ai:
   project_id: "tidy-arcade-498907-s5"
   credentials_path: "../Google_Vertex AI/gcp-key.json"
+  # Sonnet 5 is reachable and correctly formatted but blocked by a Vertex AI
+  # project quota (429 RESOURCE_EXHAUSTED); as of 2026-08-02 Neo believes this
+  # project's free/promotional Google credit may not be usable against
+  # partner (non-Google) models at all, not just "pending approval" - so
+  # Gemini is primary for now to avoid a wasted failing call every reply.
+  # Swap these back once Sonnet 5 access is confirmed usable.
   primary:
-    publisher: "anthropic"
-    model: "claude-sonnet-5"
-    location: "global"
-  fallback:
     publisher: "google"
     model: "gemini-3.1-pro-preview"
+    location: "global"
+  fallback:
+    publisher: "anthropic"
+    model: "claude-sonnet-5"
     location: "global"
 
 state:
