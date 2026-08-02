@@ -48,6 +48,8 @@ python run_host.py             # for real
 
 `--loop` keeps a local process alive between runs for interactive testing; production use should prefer scheduling a single run (Windows Task Scheduler, cron, systemd timer) at the interval in `config/host.yaml` → `board_host.scan_interval_minutes`, per the whitepaper's own recommendation against a permanent daemon loop.
 
+**Currently live as a Windows Task Scheduler entry** (`BoardHostAI-Run`, registered 2026-08-02), firing `scripts/run_scheduled.ps1` every 15 minutes independent of whether any interactive app is open — this is the genuinely "resident" state the whitepaper describes, not something that needs manual invocation anymore. The wrapper logs each run's stdout/stderr to `logs/run_host.log` (UTF-8, capped to the last 5000 lines). To pause it: `Disable-ScheduledTask -TaskName "BoardHostAI-Run"` in PowerShell; to remove it entirely: `Unregister-ScheduledTask -TaskName "BoardHostAI-Run"`.
+
 State (watermark, processed-message ledger, reply log, social memory) lives at `state/host_state.json` and is gitignored — it's per-deployment runtime state, not project source.
 
 ## Layout
