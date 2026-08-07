@@ -11,7 +11,7 @@ identity:
   instance: "persistent-host-v0.1"
 
 board_host:
-  scan_interval_minutes: 180
+  scan_interval_minutes: 120
 
   reply:
     max_replies_per_run: 5
