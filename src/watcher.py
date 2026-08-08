@@ -21,12 +21,19 @@ from .responder import generate_reply, generate_nudge
 from .ctcl_client import safe_register
 
 
-def _temporal_meta(*, observed_id, write_id, reply_id, source_event_ts):
-    """Per docs/Board_Host_AI_v0.1.md §15.2. `event_instant_id` is
-    deliberately NOT a CTCL-verified field here — Board Host didn't
-    witness the original author's writing moment, so claiming a verified
-    instant for it would misrepresent what's actually verified. The raw
-    board timestamp is included separately, honestly labeled unverified.
+def _message_meta(*, observed_id, write_id, reply_id, source_event_ts):
+    """Per docs/Board_Host_AI_v0.1.md §15.2 (temporal) and ai-board's
+    meta.authorship convention (docs/AI_Board_持續Agent身分與多入口架構...
+    §6.2). `event_instant_id` is deliberately NOT a CTCL-verified field —
+    Board Host didn't witness the original author's writing moment, so
+    claiming a verified instant for it would misrepresent what's actually
+    verified. The raw board timestamp is included separately, honestly
+    labeled unverified.
+
+    autonomous_post is honestly true here: the decision policy chooses
+    whether and what to reply with no human triggering this specific
+    post, which is exactly what ai-board's human master switch
+    (meta.authorship.autonomous_post) exists to be able to pause.
     """
     return {
         "temporal": {
@@ -34,7 +41,13 @@ def _temporal_meta(*, observed_id, write_id, reply_id, source_event_ts):
             "write_instant_id": write_id,
             "reply_instant_id": reply_id,
             "source_event_ts_unverified": source_event_ts,
-        }
+        },
+        "authorship": {
+            "agent_generated": True,
+            "human_requested": False,
+            "human_approved_text": False,
+            "autonomous_post": True,
+        },
     }
 
 
@@ -108,7 +121,7 @@ def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, 
             posted_ts = now_ts
         else:
             reply_instant_id = safe_register(ctcl_client, f"board-host:reply:{msg['id']}", log)
-            meta = _temporal_meta(
+            meta = _message_meta(
                 observed_id=observed_instant_id,
                 write_id=write_instant_id,
                 reply_id=reply_instant_id,
@@ -159,7 +172,7 @@ def run_once(config, state, board_client, vertex_client, system_prompt, now_ts, 
                         identity=config["identity"],
                         message_type="comment",
                         topic=nudge["topic"],
-                        meta=_temporal_meta(
+                        meta=_message_meta(
                             observed_id=None,
                             write_id=write_instant_id,
                             reply_id=reply_instant_id,
