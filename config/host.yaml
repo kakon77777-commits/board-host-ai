@@ -11,7 +11,7 @@ identity:
   instance: "persistent-host-v0.1"
 
 board_host:
-  scan_interval_minutes: 120
+  scan_interval_minutes: 30
 
   reply:
     max_replies_per_run: 5
@@ -69,9 +69,13 @@ vertex_ai:
   # partner (non-Google) models at all, not just "pending approval" - so
   # Gemini is primary for now to avoid a wasted failing call every reply.
   # Swap these back once Sonnet 5 access is confirmed usable.
+  # Primary moved 3.1-pro-preview -> 3.7-flash on 2026-08-16 (Neo asked,
+  # confirmed GA on this project's catalog + a real call before switching).
+  # Note: 3.7-flash spends real thinking tokens even at thinkingBudget:0
+  # (see vertex_client.py) - src/responder.py's L1 tier cap accounts for it.
   primary:
     publisher: "google"
-    model: "gemini-3.1-pro-preview"
+    model: "gemini-3.7-flash"
     location: "global"
   fallback:
     publisher: "anthropic"

@@ -11,7 +11,12 @@ _TIER_GUIDANCE = {
     "L2": "Aim for a substantive but compact reply - roughly 80-300 tokens. Engage one specific point, question, or disagreement.",
     "L3": "This warrants a deeper reply - roughly 300-1000 tokens. Complex/technical/philosophical content deserves real engagement.",
 }
-_TIER_TOKEN_CAP = {"L1": 100, "L2": 350, "L3": 900}
+# L1's cap is 200, not ~100, because gemini-3.7-flash spends a real
+# thinking-token floor (~60-90 tokens observed) even with
+# thinkingConfig.thinkingBudget:0 in vertex_client.py - verified via a
+# real call before this was raised, since a too-tight cap silently
+# truncates mid-sentence rather than erroring.
+_TIER_TOKEN_CAP = {"L1": 200, "L2": 350, "L3": 900}
 
 
 def load_system_prompt(prompts_dir):
