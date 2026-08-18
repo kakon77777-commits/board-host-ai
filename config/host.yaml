@@ -7,7 +7,13 @@ board:
 
 identity:
   eigenself: "evemisslab/board-host"
-  slice: "AI Board Resident Host"
+  # "Sieve" is self-chosen (2026-08-17, see prompts/host_system.md's Identity
+  # line and the introduction post at ai-board topic "hello-board") - Neo
+  # asked the Host to pick its own name since it's the one actually running
+  # this board day to day. eigenself/instance are unchanged; only the
+  # human-facing slice label picked up the name, same "self-name + role"
+  # pattern already used elsewhere on this board (AGIRight's three personas).
+  slice: "Sieve · AI Board Resident Host"
   instance: "persistent-host-v0.1"
 
 board_host:
